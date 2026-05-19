@@ -1,28 +1,37 @@
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
-#define ROWS 30
+
+#define ROWS 50
 #define COLS 100
+
+// char *red = "\x1b[41m \0";
+// char *red = "\033[41m🦠\033[0m";
+char *red = "🟥";
+char *dead = "⬜️";
+// char *dead = "\033[41m \033[0m";
 
 struct pos_t {
   int i;
   int j;
 };
 
-char grid[ROWS][COLS];
+char *grid[ROWS][COLS];
 
 void new_game() {
   for (int i = 0; i < ROWS; i++) {
     for (int j = 0; j < COLS; j++) {
-      grid[i][j] = ' '; // dead
+      grid[i][j] = dead; // dead
     }
   }
 
   for (int r = 0; r < ROWS; r++) {
-    int alive_max = rand() % 20;
+    int alive_max = rand() % 80;
     for (int i = 0; i < alive_max; i++) {
-      grid[r][rand() % COLS] = 'x'; // alive
+      grid[r][rand() % COLS] = red; // alive
     }
   }
 }
@@ -30,7 +39,7 @@ void new_game() {
 void print() {
   for (int i = 0; i < ROWS; i++) {
     for (int j = 0; j < COLS; j++) {
-      printf("%c", grid[i][j]);
+      printf("%s", grid[i][j]);
     }
     printf("\n");
   }
@@ -67,7 +76,7 @@ int get_alive(int i, int j) {
   for (int x = 0; x < 8; x++) {
     if (neighbors[x].i >= 0 && neighbors[x].i < ROWS && neighbors[x].j >= 0 &&
         neighbors[x].j < COLS) {
-      if (grid[neighbors[x].i][neighbors[x].j] == 'x') {
+      if (!strcmp(grid[neighbors[x].i][neighbors[x].j], red)) {
         alive_count++;
       }
     }
@@ -76,32 +85,48 @@ int get_alive(int i, int j) {
   return alive_count;
 }
 
+void exit_game() {
+  printf("\x1b[0m");
+  exit(0);
+}
+
+void pause_screen() {
+  struct timespec ts;
+  ts.tv_sec = 0;
+  ts.tv_nsec = 500000000L; // 500 million nanoseconds
+  nanosleep(&ts, NULL);
+}
+
 int main() {
+
+  signal(SIGINT, exit_game);
+
   srand(time(NULL));
   // init state
   new_game();
 
   print();
-
+  pause_screen();
   // reset
+  printf("\033[2J\033[H");
 
   while (1) {
     // update state
-    char new_grid[ROWS][COLS];
+    char *new_grid[ROWS][COLS];
 
     for (int i = 0; i < ROWS; i++) {
       for (int j = 0; j < COLS; j++) {
 
         int alive_count = get_alive(i, j);
         if (alive_count < 2 || alive_count > 3) {
-          new_grid[i][j] = ' ';
-        } else if (grid[i][j] == 'x' &&
+          new_grid[i][j] = dead;
+        } else if (!strcmp(grid[i][j], red) &&
                    (alive_count == 2 || alive_count == 3)) {
           new_grid[i][j] = grid[i][j];
-        } else if (grid[i][j] == ' ' && alive_count == 3) {
-          new_grid[i][j] = 'x';
+        } else if (!strcmp(grid[i][j], dead) && alive_count == 3) {
+          new_grid[i][j] = red;
         } else {
-          new_grid[i][j] = ' ';
+          new_grid[i][j] = dead;
         }
       }
     }
@@ -117,7 +142,7 @@ int main() {
     print();
     // printf("\x1b0m")
     printf("\033[2J\033[H");
-    sleep(1);
+    pause_screen();
   }
 
   return 0;
